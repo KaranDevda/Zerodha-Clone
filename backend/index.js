@@ -2,12 +2,9 @@ require("dotenv").config();
 
 const express = require("express");
 const mongoose = require("mongoose");
+const bodyParser = require("body-parser");
 const cors = require("cors");
-const session = require("express-session");
-const passport = require("passport");
-const LocalStrategy = require("passport-local");
 
-// Import Models
 const { HoldingsModel } = require("./model/HoldingsModel");
 const { PositionsModel } = require("./model/PositionsModel");
 const { OrdersModel } = require("./model/OrdersModel");
@@ -18,183 +15,179 @@ const uri = process.env.MONGO_URL;
 
 const app = express();
 
-// Enable CORS for React frontend (localhost and production environments)
 app.use(
   cors({
     origin: ["http://localhost:3000", "http://localhost:3001"],
     credentials: true,
   })
-);
+);  
+app.use(bodyParser.json());
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Express Session Configuration
-app.use(
-  session({
-    secret: process.env.SECRET || "zerodhaclonesecret",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
-      httpOnly: true,
-    },
-  })
-);
-
-// Initialize Passport & Session Middleware
-app.use(passport.initialize());
-app.use(passport.session());
-
-passport.use(new LocalStrategy(UserModel.authenticate()));
-passport.serializeUser(UserModel.serializeUser());
-passport.deserializeUser(UserModel.deserializeUser());
-
-// --- AUTHENTICATION ROUTES ---
+// Fetch Holdings
+app.get("/allHoldings", async (req, res) => {
+  try {
+    let allHoldings = await HoldingsModel.find({});
+    res.json(allHoldings);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Signup Route
 app.post("/signup", async (req, res) => {
   try {
     const { username, email, password } = req.body;
-    const user = new UserModel({ username, email });
-    const registeredUser = await UserModel.register(user, password);
-    req.login(registeredUser, (err) => {
-      if (err) return res.status(500).json({ error: err.message });
-      return res.status(200).json({
-        success: true,
-        message: "User registered successfully",
-        user: { username: registeredUser.username, email: registeredUser.email },
-      });
-    });
-  } catch (err) {
-    return res.status(400).json({ error: err.message });
+
+    if (!username || !email || !password) {
+      return res.status(400).json({ success: false, message: "All fields are required." });
+    }
+
+    const existingUser = await UserModel.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: "User already exists with this email." });
+    }
+
+    const newUser = new UserModel({ username, email, password });
+    await newUser.save();
+
+    res.status(201).json({ success: true, message: "User registered successfully!" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // Login Route
-app.post("/login", passport.authenticate("local"), (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Logged in successfully",
-    user: req.user.username,
-  });
-});
-
-// Logout Route
-app.get("/logout", (req, res) => {
-  req.logout((err) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.status(200).json({ success: true, message: "Logged out successfully" });
-  });
-});
-
-// --- CORE DATA ROUTES ---
-
-// Fetch All Holdings
-app.get("/allHoldings", async (req, res) => {
+app.post("/login", async (req, res) => {
   try {
-    let allHoldings = await HoldingsModel.find({});
-    res.json(allHoldings);
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Please provide both email and password." });
+    }
+
+    // Check if user exists
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid email or password." });
+    }
+
+    // Verify password
+    if (user.password !== password) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid email or password." });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful!",
+      user: { id: user._id, username: user.username, email: user.email },
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// Fetch All Positions
+// Fetch Positions
 app.get("/allPositions", async (req, res) => {
   try {
     let allPositions = await PositionsModel.find({});
     res.json(allPositions);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Create New Order
+// Add or verify this in backend/index.js
+app.get("/allWatchlist", async (req, res) => {
+  const watchlist = [
+    { name: "INFY", price: 1555.45, percent: "-1.60%", isDown: true },
+    { name: "ONGC", price: 116.8, percent: "-0.09%", isDown: true },
+    { name: "TCS", price: 3194.8, percent: "-0.25%", isDown: true },
+    { name: "KPITTECH", price: 266.45, percent: "+3.54%", isDown: false },
+    { name: "QUICKHEAL", price: 308.55, percent: "-0.15%", isDown: true },
+    { name: "WIPRO", price: 577.75, percent: "+0.32%", isDown: false },
+    { name: "M&M", price: 779.8, percent: "-0.01%", isDown: true },
+    { name: "RELIANCE", price: 2112.4, percent: "+1.44%", isDown: false },
+    { name: "HUL", price: 512.4, percent: "+1.04%", isDown: false },
+  ];
+  res.json(watchlist);
+});
+
+// Fetch Orders
+app.get("/allOrders", async (req, res) => {
+  try {
+    let allOrders = await OrdersModel.find({});
+    res.json(allOrders);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Place New Order (BUY or SELL)
 app.post("/newOrder", async (req, res) => {
   try {
+    const { name, qty, price, mode } = req.body;
+
+    // 1. Save the transaction into Orders history
     let newOrder = new OrdersModel({
-      name: req.body.name,
-      qty: req.body.qty,
-      price: req.body.price,
-      mode: req.body.mode,
+      name,
+      qty: Number(qty),
+      price: Number(price),
+      mode,
     });
     await newOrder.save();
-    res.json({ message: "Order saved successfully!" });
+
+    // 2. Adjust Holdings based on BUY or SELL
+    if (mode === "BUY") {
+      let existingStock = await HoldingsModel.findOne({ name });
+      if (existingStock) {
+        const totalQty = existingStock.qty + Number(qty);
+        const newAvg =
+          (existingStock.avg * existingStock.qty + Number(price) * Number(qty)) /
+          totalQty;
+
+        existingStock.qty = totalQty;
+        existingStock.avg = Number(newAvg.toFixed(2));
+        existingStock.price = Number(price);
+        await existingStock.save();
+      } else {
+        let newHolding = new HoldingsModel({
+          name,
+          qty: Number(qty),
+          avg: Number(price),
+          price: Number(price),
+          net: "+0.00%",
+          day: "+0.00%",
+        });
+        await newHolding.save();
+      }
+    } else if (mode === "SELL") {
+      let existingStock = await HoldingsModel.findOne({ name });
+      if (existingStock) {
+        if (existingStock.qty <= Number(qty)) {
+          // If selling all or more than owned, remove stock from holdings
+          await HoldingsModel.deleteOne({ name });
+        } else {
+          // Deduct quantity
+          existingStock.qty -= Number(qty);
+          await existingStock.save();
+        }
+      }
+    }
+
+    res.json({ success: true, message: "Order processed successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// --- SEEDING DATA ROUTES ---
-
-// Seed Holdings
-app.get("/addHoldings", async (req, res) => {
-  try {
-    let tempHoldings = [
-      { name: "BHARTIARTL", qty: 2, avg: 538.05, price: 541.15, net: "+0.58%", day: "+2.99%" },
-      { name: "HDFCBANK", qty: 2, avg: 1383.4, price: 1522.35, net: "+10.04%", day: "+0.11%" },
-      { name: "HINDUNILVR", qty: 1, avg: 2335.85, price: 2417.4, net: "+3.49%", day: "+0.21%" },
-      { name: "INFY", qty: 1, avg: 1350.5, price: 1555.45, net: "+15.18%", day: "-1.60%", isLoss: true },
-      { name: "ITC", qty: 5, avg: 202.0, price: 207.9, net: "+2.92%", day: "+0.80%" },
-      { name: "KPITTECH", qty: 5, avg: 250.3, price: 266.45, net: "+6.45%", day: "+3.54%" },
-      { name: "M&M", qty: 2, avg: 809.9, price: 779.8, net: "-3.72%", day: "-0.01%", isLoss: true },
-      { name: "RELIANCE", qty: 1, avg: 2193.7, price: 2112.4, net: "-3.71%", day: "+1.44%" },
-      { name: "SBIN", qty: 4, avg: 324.35, price: 430.2, net: "+32.63%", day: "-0.34%", isLoss: true },
-      { name: "SGBMAY29", qty: 2, avg: 4727.0, price: 4719.0, net: "-0.17%", day: "+0.15%" },
-      { name: "TATAPOWER", qty: 5, avg: 104.2, price: 124.15, net: "+19.15%", day: "-0.24%", isLoss: true },
-      { name: "TCS", qty: 1, avg: 3041.7, price: 3194.8, net: "+5.03%", day: "-0.25%", isLoss: true },
-      { name: "WIPRO", qty: 4, avg: 489.3, price: 577.75, net: "+18.08%", day: "+0.32%" },
-    ];
-
-    await HoldingsModel.deleteMany({});
-    await HoldingsModel.insertMany(tempHoldings);
-    res.send("Holdings added successfully!");
-  } catch (error) {
-    res.status(500).send("Error adding holdings: " + error.message);
-  }
-});
-
-// Seed Positions
-app.get("/addPositions", async (req, res) => {
-  try {
-    let tempPositions = [
-      {
-        product: "CNC",
-        name: "EVEREADY",
-        qty: 2,
-        avg: 316.27,
-        price: 312.35,
-        net: "+0.58%",
-        day: "-1.24%",
-        isLoss: true,
-      },
-      {
-        product: "CNC",
-        name: "JUBLFOOD",
-        qty: 1,
-        avg: 312.35,
-        price: 308.2,
-        net: "+10.04%",
-        day: "-1.33%",
-        isLoss: true,
-      },
-    ];
-
-    await PositionsModel.deleteMany({});
-    await PositionsModel.insertMany(tempPositions);
-    res.send("Positions added successfully!");
-  } catch (error) {
-    res.status(500).send("Error adding positions: " + error.message);
-  }
-});
-
-// MongoDB Connection & Server Initialization
-mongoose
-  .connect(uri)
-  .then(() => console.log("DB Connected!"))
-  .catch((err) => console.error("DB Connection Error:", err.message));
-
-app.listen(PORT, () => {
-  console.log(`App started on port ${PORT}!`);
+mongoose.connect(uri).then(() => {
+  app.listen(PORT, () => {
+    console.log(`App started on port ${PORT}`);
+  });
 });

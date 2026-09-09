@@ -13,6 +13,7 @@ import NotFound from './landing_page/NotFound';
 import Navbar from './landing_page/Navbar';
 import Footer from './landing_page/Footer';
 import SignUp from './landing_page/signup/Signup';
+import Login  from './landing_page/signup/Login';
 
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
@@ -22,6 +23,7 @@ root.render(
   <Routes>
     <Route path="/" element={<HomePage/>}/>
     <Route path="/signup" element={<SignUp/>}/>
+    <Route path="/login" element={<Login/>}/>
     <Route path="/about" element={<AboutPage/>}/>
     <Route path="/product" element={<ProductsPage/>}/>
     <Route path="/pricing" element={<PricingPage/>}/>

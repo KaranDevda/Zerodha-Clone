@@ -1,169 +1,54 @@
 import React, { useState, useEffect } from "react";
-import axios, { all } from "axios";
-import { VerticalGraph } from "./VerticalGraph";
-
-// import { holdings } from "../data/data";
+import axios from "axios";
 
 const Holdings = () => {
   const [allHoldings, setAllHoldings] = useState([]);
 
   useEffect(() => {
-  axios.get("http://localhost:3002/allHoldings")
-    .then((res) => {
+    const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3002";
+    axios.get(`${API_URL}/allHoldings`).then((res) => {
       setAllHoldings(res.data);
-    })
-    .catch((err) => {
-      console.error("Failed to fetch holdings:", err.message);
     });
-}, []);
-
-  // const labels = ['January', 'February', 'March', 'April', 'May', 'June', 'July'];
-  const labels = allHoldings.map((subArray) => subArray["name"]);
-
-  const data = {
-    labels,
-    datasets: [
-      {
-        label: "Stock Price",
-        data: allHoldings.map((stock) => stock.price),
-        backgroundColor: "rgba(255, 99, 132, 0.5)",
-      },
-    ],
-  };
-
-  // export const data = {
-  //   labels,
-  //   datasets: [
-  // {
-  //   label: 'Dataset 1',
-  //   data: labels.map(() => faker.datatype.number({ min: 0, max: 1000 })),
-  //   backgroundColor: 'rgba(255, 99, 132, 0.5)',
-  // },
-  //     {
-  //       label: 'Dataset 2',
-  //       data: labels.map(() => faker.datatype.number({ min: 0, max: 1000 })),
-  //       backgroundColor: 'rgba(53, 162, 235, 0.5)',
-  //     },
-  //   ],
-  // };
-
-  return (
-    <>
-      <h3 className="title">Holdings ({allHoldings.length})</h3>
-
-      <div className="order-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Instrument</th>
-                <th>Qty.</th>
-                <th>Avg. cost</th>
-                <th>LTP</th>
-                <th>Cur. val</th>
-                <th>P&L</th>
-                <th>Net chg.</th>
-                <th>Day chg.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allHoldings.map((stock, index) => {
-                const curValue = stock.price * stock.qty;
-                const isProfit = curValue - stock.avg * stock.qty >= 0.0;
-                const profClass = isProfit ? "profit" : "loss";
-                const dayClass = stock.isLoss ? "loss" : "profit";
-
-                return (
-                  <tr key={index}>
-                    <td>{stock.name}</td>
-                    <td>{stock.qty}</td>
-                    <td>{stock.avg.toFixed(2)}</td>
-                    <td>{stock.price.toFixed(2)}</td>
-                    <td>{curValue.toFixed(2)}</td>
-                    <td className={profClass}>
-                      {(curValue - stock.avg * stock.qty).toFixed(2)}
-                    </td>
-                    <td className={profClass}>{stock.net}</td>
-                    <td className={dayClass}>{stock.day}</td>
-                  </tr>
-                );
-              })}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="row">
-        <div className="col">
-          <h5>
-            29,875.<span>55</span>{" "}
-          </h5>
-          <p>Total investment</p>
-        </div>
-        <div className="col">
-          <h5>
-            31,428.<span>95</span>{" "}
-          </h5>
-          <p>Current value</p>
-        </div>
-        <div className="col">
-          <h5>1,553.40 (+5.20%)</h5>
-          <p>P&L</p>
-        </div>
-      </div>
-      <VerticalGraph data={data} />
-    </>
-  );
-};
-export default Holdings;
-
-const Positions = () => {
-  const [allPositions, setAllPositions] = useState([]);
-
-  useEffect(() => {
-    axios
-      .get("http://localhost:3002/allPositions")
-      .then((res) => {
-        setAllPositions(res.data);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch positions:", err.message);
-      });
   }, []);
 
   return (
     <>
-      <h3 className="title">Positions ({allPositions.length})</h3>
-
+      <h3 className="title">Holdings ({allHoldings.length})</h3>
       <div className="order-table">
         <table>
           <thead>
             <tr>
-              <th>Product</th>
               <th>Instrument</th>
               <th>Qty.</th>
-              <th>Avg.</th>
+              <th>Avg. cost</th>
               <th>LTP</th>
+              <th>Cur. val</th>
               <th>P&L</th>
-              <th>Chg.</th>
+              <th>Net chg.</th>
+              <th>Day chg.</th>
             </tr>
           </thead>
           <tbody>
-            {allPositions.map((stock, index) => {
-              const curValue = stock.price * stock.qty;
-              const isProfit = curValue - stock.avg * stock.qty >= 0.0;
+            {allHoldings.map((stock, index) => {
+              const curValue = (stock.price || 0) * (stock.qty || 0);
+              const totalCost = (stock.avg || 0) * (stock.qty || 0);
+              const pnl = curValue - totalCost;
+
+              const isProfit = pnl >= 0;
               const profClass = isProfit ? "profit" : "loss";
-              const dayClass = stock.isLoss ? "loss" : "profit";
 
               return (
                 <tr key={index}>
-                  <td>{stock.product}</td>
                   <td>{stock.name}</td>
                   <td>{stock.qty}</td>
-                  <td>{stock.avg.toFixed(2)}</td>
-                  <td>{stock.price.toFixed(2)}</td>
+                  <td>{stock.avg ? stock.avg.toFixed(2) : "0.00"}</td>
+                  <td>{stock.price ? stock.price.toFixed(2) : "0.00"}</td>
+                  <td>{curValue.toFixed(2)}</td>
                   <td className={profClass}>
-                    {(curValue - stock.avg * stock.qty).toFixed(2)}
+                    {pnl >= 0 ? `+${pnl.toFixed(2)}` : pnl.toFixed(2)}
                   </td>
-                  <td className={dayClass}>{stock.day}</td>
+                  <td className={profClass}>{stock.net || "0.00%"}</td>
+                  <td className={profClass}>{stock.day || "0.00%"}</td>
                 </tr>
               );
             })}
@@ -173,3 +58,5 @@ const Positions = () => {
     </>
   );
 };
+
+export default Holdings;

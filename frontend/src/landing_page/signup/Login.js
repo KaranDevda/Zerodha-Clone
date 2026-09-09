@@ -1,20 +1,19 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
 
-const Signup = () => {
-  const [username, setUsername] = useState("");
+const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const handleSignup = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMsg("");
 
     try {
-      const res = await axios.post("http://localhost:3002/signup", {
-        username,
+      const res = await axios.post("http://localhost:3002/login", {
         email,
         password,
       });
@@ -24,7 +23,7 @@ const Signup = () => {
       }
     } catch (err) {
       setErrorMsg(
-        err.response?.data?.message || "Signup failed. Please try again."
+        err.response?.data?.message || "Login failed. Please check your credentials."
       );
     }
   };
@@ -35,28 +34,17 @@ const Signup = () => {
         <div className="col-6 p-5">
           <img
             src="/images/signup.png"
-            alt="Signup"
+            alt="Login"
             style={{ width: "100%" }}
           />
         </div>
         <div className="col-6 p-5">
-          <h2>Signup now</h2>
-          <p className="text-muted">Or track your existing application.</p>
+          <h2>Login to Kite</h2>
+          <p className="text-muted">Access your account and trading dashboard.</p>
 
           {errorMsg && <div className="alert alert-danger">{errorMsg}</div>}
 
-          <form onSubmit={handleSignup}>
-            <div className="mb-3">
-              <label className="form-label">Username</label>
-              <input
-                type="text"
-                className="form-control"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-              />
-            </div>
-
+          <form onSubmit={handleLogin}>
             <div className="mb-3">
               <label className="form-label">Email</label>
               <input
@@ -89,13 +77,19 @@ const Signup = () => {
             </div>
 
             <button type="submit" className="btn btn-primary w-100">
-              Sign up
+              Log in
             </button>
           </form>
+
+          <div className="mt-3 text-center">
+            <p className="text-muted">
+              Don't have an account? <Link to="/signup">Sign up here</Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default Signup;
+export default Login;
